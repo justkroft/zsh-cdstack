@@ -1,0 +1,45 @@
+# cd stack: zsh port of bahamas10/bash-cdstack
+CD_STACK_MAX=${CD_STACK_MAX:-15}
+# CD_STACK_REVERSE=1   # uncomment to print the stack newest-last
+
+typeset -ga _CD_STACK=("$PWD")
+typeset -gi _CD_STACK_PTR=0
+
+cd() {
+    builtin cd "$@" || return
+    _CD_STACK=("$PWD" "${(@)_CD_STACK}")
+    _CD_STACK=("${(@)_CD_STACK[1,CD_STACK_MAX]}")
+    _CD_STACK_PTR=0
+}
+
+s() {
+    if [[ -n $1 ]]; then
+        local target=${_CD_STACK[$(($1 + 1))]}
+        if [[ -z $target ]]; then
+            print -u2 "s: no such entry: $1"
+            return 1
+        fi
+        builtin cd "$target" || return
+        _CD_STACK_PTR=$1
+        return
+    fi
+
+    local max=${#_CD_STACK[@]} i j dir
+    local arrow="$(tput setaf 2)->$(tput sgr0)"
+    for ((i = 0; i < max; i++)); do
+        j=$i
+        [[ -n $CD_STACK_REVERSE ]] && j=$((max - 1 - i))
+        dir=${_CD_STACK[$((j + 1))]}
+        if [[ $dir == $HOME || $dir == $HOME/* ]]; then
+            dir="~${dir#$HOME}"
+        fi
+        if ((j == _CD_STACK_PTR)); then
+            print -n -- "$arrow"
+        else
+            print -n -- "  "
+        fi
+        printf '%2d: %s\n' "$j" "$dir"
+    done
+}
+
+b() { s $((_CD_STACK_PTR + 1)); }
